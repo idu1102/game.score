@@ -5,15 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Game Score Master</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 20px; }
-        .card { background: #1e1e1e; padding: 20px; border-radius: 15px; display: inline-block; min-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: 10px; vertical-align: top; }
-        h1 { color: #00d4ff; }
-        input { padding: 10px; border-radius: 5px; border: none; width: 80%; margin-bottom: 10px; }
-        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
-        button:hover { opacity: 0.8; transform: scale(1.05); }
-        .hidden { display: none; }
-        #score-display { font-size: 2.5em; color: #ffcc00; margin: 10px 0; font-weight: bold; }
-        .item-box { border: 1px solid #444; padding: 10px; border-radius: 10px; background: #252525; width: 150px; }
+        /* 全体のデザイン */
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 20px; margin: 0; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 15px; display: inline-block; min-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: 10px; vertical-align: top; }
+        h1 { color: #00d4ff; margin-top: 0; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #252525; color: white; width: 80%; margin-bottom: 15px; }
+        
+        /* ボタンのデザイン */
+        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; transition: 0.3s; margin: 5px; }
+        button:hover { background: #00b8e6; transform: translateY(-2px); }
+        .btn-secondary { background: #444; color: white; }
+        
+        /* ユーティリティ */
+        .hidden { display: none !important; }
+        #score-display { font-size: 3em; color: #ffcc00; margin: 10px 0; font-weight: bold; text-shadow: 0 0 10px rgba(255,204,0,0.3); }
+        
+        /* ショップアイテム */
+        .item-box { border: 1px solid #333; padding: 15px; border-radius: 12px; background: #252525; width: 140px; transition: 0.3s; }
+        .item-box:hover { border-color: #00d4ff; }
+
+        /* 自作メッセージボックス（モーダル） */
+        #custom-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;
+            z-index: 9999; opacity: 0; pointer-events: none; transition: 0.3s;
+        }
+        #custom-modal.show { opacity: 1; pointer-events: auto; }
+        .modal-content { background: #222; border: 2px solid #00d4ff; padding: 30px; border-radius: 20px; max-width: 80%; }
     </style>
 </head>
 <body>
@@ -29,21 +47,31 @@
     <div id="main-screen" class="card hidden">
         <p id="welcome-msg" style="font-size: 1.2em; color: #00d4ff; margin-bottom: 5px;">Name：--</p>
         <div id="score-display">0</div>
-        <p>現在のポイント</p>
+        <p style="margin-top:0; color:#888;">現在のポイント</p>
         
-        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+        <hr style="border: 0; border-top: 1px solid #333; margin: 25px 0;">
         
         <h2>Item Shop</h2>
-        <div id="item-list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+        <div id="item-list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px;">
             <p>アイテムを読み込み中...</p>
         </div>
 
-        <br>
-        <button style="background:#555; color:white; font-size: 0.8em;" onclick="logout()">ログアウト</button>
+        <br><br>
+        <button class="btn-secondary" onclick="logout()">ログアウト</button>
+    </div>
+
+    <div id="custom-modal">
+        <div class="modal-content">
+            <h2 id="modal-title" style="color:#00d4ff; margin-top:0;">通知</h2>
+            <p id="modal-body">メッセージ内容</p>
+            <div id="modal-footer">
+                <button onclick="closeModal()">OK</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // ★★★ あなたのGASのURLに書き換えてください ★★★
+        // ★★★ あなたのGASのURLをここに貼り付けてください ★★★
         const GAS_URL = "https://script.google.com/macros/s/AKfycby5BrxMGY1qTwF2S4vc_j9DmquK-rCfoN0YnDLIMR5vM6xTmg1znmGT2n6mXnOuSbJ7/exec";
         
         let currentUser = JSON.parse(localStorage.getItem('gameUser'));
@@ -52,9 +80,41 @@
             if (currentUser) showMainScreen();
         };
 
+        // 自作メッセージを表示する関数
+        function showMessage(title, body, showConfirm = false, onConfirm = null) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerText = body;
+            
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = ""; // 一旦クリア
+            
+            if (showConfirm) {
+                const yesBtn = document.createElement('button');
+                yesBtn.innerText = "はい";
+                yesBtn.onclick = () => { onConfirm(); closeModal(); };
+                const noBtn = document.createElement('button');
+                noBtn.innerText = "いいえ";
+                noBtn.className = "btn-secondary";
+                noBtn.onclick = closeModal;
+                footer.appendChild(yesBtn);
+                footer.appendChild(noBtn);
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.innerText = "OK";
+                okBtn.onclick = closeModal;
+                footer.appendChild(okBtn);
+            }
+            
+            document.getElementById('custom-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.remove('show');
+        }
+
         async function login() {
             const name = document.getElementById('player-name-input').value;
-            if (!name) return alert("名前を入力してね");
+            if (!name) return showMessage("エラー", "名前を入力してください。");
 
             const res = await fetch(GAS_URL, {
                 method: "POST",
@@ -92,8 +152,8 @@
                     div.className = 'item-box';
                     div.innerHTML = `
                         <p style="margin:0; font-weight:bold;">${item.name}</p>
-                        <p style="color:#ffcc00; margin:5px 0;">${item.price}pt</p>
-                        <button onclick="buyItem('${item.id}')" style="font-size:0.7em; padding:5px 10px;">購入</button>
+                        <p style="color:#ffcc00; margin:10px 0; font-size:1.2em;">${item.price}pt</p>
+                        <button onclick="confirmPurchase('${item.id}', '${item.name}')" style="font-size:0.8em; padding:8px 15px;">購入</button>
                     `;
                     list.appendChild(div);
                 });
@@ -102,9 +162,13 @@
             }
         }
 
-        async function buyItem(itemId) {
-            if (!confirm("購入しますか？")) return;
+        function confirmPurchase(itemId, itemName) {
+            showMessage("購入確認", `${itemName} を購入しますか？`, true, () => {
+                buyItem(itemId);
+            });
+        }
 
+        async function buyItem(itemId) {
             const res = await fetch(GAS_URL, {
                 method: "POST",
                 body: JSON.stringify({ action: "buyItem", userId: currentUser.userId, itemId: itemId })
@@ -112,12 +176,12 @@
             const data = await res.json();
             
             if (data.status === "success") {
-                alert(data.itemName + " を購入しました！");
+                showMessage("成功", data.itemName + " を購入しました！");
                 currentUser.points = data.newPoint;
                 localStorage.setItem('gameUser', JSON.stringify(currentUser));
                 document.getElementById('score-display').innerText = data.newPoint;
             } else {
-                alert(data.message);
+                showMessage("エラー", data.message);
             }
         }
 
