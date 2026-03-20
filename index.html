@@ -2,18 +2,68 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>対戦ゲーム得点管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Score Master</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; }
-        .card { border: 1px solid #444; padding: 20px; margin: 20px; border-radius: 10px; }
-        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 50px; }
+        .card { background: #1e1e1e; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: inline-block; min-width: 300px; }
+        h1 { color: #00d4ff; margin-bottom: 10px; }
+        .score-display { font-size: 3em; font-weight: bold; color: #ffcc00; margin: 20px 0; }
+        button { background: #00d4ff; color: #121212; border: none; padding: 15px 30px; font-size: 1.1em; font-weight: bold; border-radius: 30px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #0099cc; transform: scale(1.05); }
+        button:disabled { background: #555; cursor: not-allowed; }
+        #message { margin-top: 20px; color: #00ff88; min-height: 1.2em; }
     </style>
 </head>
 <body>
-    <h1>Score Master (Alpha)</h1>
+
     <div class="card">
-        <p>現在のポイント: <span id="points">読み込み中...</span></p>
-        <button onclick="alert('ここからGASにデータを送る予定です！')">クイズに挑戦</button>
+        <h1>Player Status</h1>
+        <p>User ID: <span id="user-id">user1</span></p>
+        <div class="score-display" id="score-val">--</div>
+        <p>ポイント</p>
+        
+        <button id="quiz-btn" onclick="answerQuiz()">クイズに正解した！(+10pt)</button>
+        <p id="message"></p>
     </div>
+
+    <script>
+        // ★★★ ここに自分のGASのURLを貼り付けてください ★★★
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyhoKM9BkUHlyRaRnY3KGCFLMKesSQhMaDVX_l7bfF_b-K_sbnvur4jsXH1OEa7D-O1/exec";
+        const userId = "user1"; // テスト用にuser1固定
+
+        // ボタンを押した時の処理
+        async function answerQuiz() {
+            const btn = document.getElementById('quiz-btn');
+            const msg = document.getElementById('message');
+            
+            btn.disabled = true;
+            msg.innerText = "データ送信中...";
+
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        userId: userId,
+                        points: 10
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.status === "success") {
+                    document.getElementById('score-val').innerText = result.newPoint;
+                    msg.innerText = "正解！10ポイント獲得しました！";
+                } else {
+                    msg.innerText = "エラー: " + result.status;
+                }
+            } catch (e) {
+                console.error(e);
+                msg.innerText = "送信に失敗しました。";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>
