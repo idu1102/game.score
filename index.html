@@ -64,7 +64,7 @@
         function showMainScreen() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-screen').classList.remove('hidden');
-            document.getElementById('welcome-msg').innerText = "Hi, " + currentUser.userName;
+            document.getElementById('welcome-msg').innerText = "Name: " + currentUser.userName;
             document.getElementById('score-display').innerText = currentUser.points;
         }
 
