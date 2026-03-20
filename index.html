@@ -6,12 +6,14 @@
     <title>Game Score Master</title>
     <style>
         body { font-family: sans-serif; background: #121212; color: #e0e0e0; text-align: center; padding: 20px; }
-        .card { background: #1e1e1e; padding: 30px; border-radius: 15px; display: inline-block; min-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 15px; display: inline-block; min-width: 300px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: 10px; vertical-align: top; }
         h1 { color: #00d4ff; }
         input { padding: 10px; border-radius: 5px; border: none; width: 80%; margin-bottom: 10px; }
-        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 10px; }
+        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        button:hover { opacity: 0.8; transform: scale(1.05); }
         .hidden { display: none; }
-        #score-display { font-size: 2.5em; color: #ffcc00; margin: 15px 0; }
+        #score-display { font-size: 2.5em; color: #ffcc00; margin: 10px 0; font-weight: bold; }
+        .item-box { border: 1px solid #444; padding: 10px; border-radius: 10px; background: #252525; width: 150px; }
     </style>
 </head>
 <body>
@@ -25,23 +27,29 @@
     </div>
 
     <div id="main-screen" class="card hidden">
-        <h1 id="welcome-msg">Hi, Player</h1>
+        <p id="welcome-msg" style="font-size: 1.2em; color: #00d4ff; margin-bottom: 5px;">Name：--</p>
         <div id="score-display">0</div>
         <p>現在のポイント</p>
-        <button onclick="addPoint()">クイズ正解！(+10pt)</button>
+        
+        <hr style="border: 0; border-top: 1px solid #444; margin: 20px 0;">
+        
+        <h2>Item Shop</h2>
+        <div id="item-list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+            <p>アイテムを読み込み中...</p>
+        </div>
+
         <br>
-        <button style="background:#555; color:white;" onclick="logout()">ログアウト</button>
+        <button style="background:#555; color:white; font-size: 0.8em;" onclick="logout()">ログアウト</button>
     </div>
 
     <script>
+        // ★★★ あなたのGASのURLに書き換えてください ★★★
         const GAS_URL = "https://script.google.com/macros/s/AKfycby5BrxMGY1qTwF2S4vc_j9DmquK-rCfoN0YnDLIMR5vM6xTmg1znmGT2n6mXnOuSbJ7/exec";
+        
         let currentUser = JSON.parse(localStorage.getItem('gameUser'));
 
-        // 起動時にログイン済みかチェック
         window.onload = () => {
-            if (currentUser) {
-                showMainScreen();
-            }
+            if (currentUser) showMainScreen();
         };
 
         async function login() {
@@ -64,20 +72,52 @@
         function showMainScreen() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('main-screen').classList.remove('hidden');
-            document.getElementById('welcome-msg').innerText = "Name: " + currentUser.userName;
+            document.getElementById('welcome-msg').innerText = "Name：" + currentUser.userName;
             document.getElementById('score-display').innerText = currentUser.points;
+            loadItems();
         }
 
-        async function addPoint() {
+        async function loadItems() {
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "getItems" })
+                });
+                const data = await res.json();
+                const list = document.getElementById('item-list');
+                list.innerHTML = ""; 
+
+                data.items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'item-box';
+                    div.innerHTML = `
+                        <p style="margin:0; font-weight:bold;">${item.name}</p>
+                        <p style="color:#ffcc00; margin:5px 0;">${item.price}pt</p>
+                        <button onclick="buyItem('${item.id}')" style="font-size:0.7em; padding:5px 10px;">購入</button>
+                    `;
+                    list.appendChild(div);
+                });
+            } catch (e) {
+                console.error("アイテム読み込み失敗", e);
+            }
+        }
+
+        async function buyItem(itemId) {
+            if (!confirm("購入しますか？")) return;
+
             const res = await fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify({ action: "addPoint", userId: currentUser.userId, points: 10 })
+                body: JSON.stringify({ action: "buyItem", userId: currentUser.userId, itemId: itemId })
             });
             const data = await res.json();
+            
             if (data.status === "success") {
+                alert(data.itemName + " を購入しました！");
                 currentUser.points = data.newPoint;
                 localStorage.setItem('gameUser', JSON.stringify(currentUser));
                 document.getElementById('score-display').innerText = data.newPoint;
+            } else {
+                alert(data.message);
             }
         }
 
