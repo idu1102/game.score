@@ -10,22 +10,25 @@
         h1 { color: #00d4ff; margin-top: 0; }
         input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #252525; color: white; width: 80%; margin-bottom: 15px; }
         
-        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; transition: 0.3s; margin: 5px; }
+        button { background: #00d4ff; color: #121212; border: none; padding: 12px 25px; font-weight: bold; border-radius: 25px; cursor: pointer; transition: 0.3s; margin: 5px; min-width: 100px; }
         button:hover { background: #00b8e6; transform: translateY(-2px); }
         .btn-secondary { background: #444; color: white; }
-        .btn-shop { background: #ffcc00; color: #121212; margin-top: 20px; width: 80%; font-size: 1.1em; }
+        
+        /* ナビゲーションボタン */
+        .btn-nav { background: #b19cd9; color: #121212; width: 80%; font-size: 1.1em; margin-top: 10px; } /* 謎っぽい紫 */
+        .btn-shop-nav { background: #ffcc00; color: #121212; width: 80%; font-size: 1.1em; margin-top: 10px; }
         
         .hidden { display: none !important; }
         #score-display { font-size: 3.5em; color: #ffcc00; margin: 10px 0; font-weight: bold; }
-        
         .item-box { border: 1px solid #333; padding: 15px; border-radius: 12px; background: #252525; width: 140px; }
 
+        /* 謎（クイズ）用 */
+        #quiz-question { font-size: 1.2em; margin-bottom: 20px; color: #fff; line-height: 1.6; }
+        .choice-btn { display: block; width: 90%; margin: 10px auto; background: #333; color: white; border: 1px solid #444; }
+        .choice-btn:hover { background: #444; border-color: #b19cd9; }
+
         /* モーダル */
-        #custom-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;
-            z-index: 9999; opacity: 0; pointer-events: none; transition: 0.3s;
-        }
+        #custom-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 9999; opacity: 0; pointer-events: none; transition: 0.3s; }
         #custom-modal.show { opacity: 1; pointer-events: auto; }
         .modal-content { background: #222; border: 2px solid #00d4ff; padding: 30px; border-radius: 20px; max-width: 80%; }
     </style>
@@ -37,7 +40,7 @@
         <p>プレイヤー名を入力してください</p>
         <input type="text" id="player-name-input" placeholder="名前を入力">
         <br>
-        <button onclick="login()">ログイン / 新規登録</button>
+        <button onclick="login()">開始する</button>
     </div>
 
     <div id="main-screen" class="card hidden">
@@ -45,20 +48,25 @@
         <div id="score-display">0</div>
         <p style="margin-top:0; color:#888;">現在のポイント</p>
         
-        <button class="btn-shop" onclick="toggleView('shop')">ショップに行く</button>
+        <button class="btn-nav" onclick="toggleView('quiz')"> 謎に答える</button>
+        <button class="btn-shop-nav" onclick="toggleView('shop')">ショップへ行く</button>
 
         <br><br>
         <button class="btn-secondary" style="font-size: 0.8em;" onclick="logout()">ログアウト</button>
     </div>
 
+    <div id="quiz-screen" class="card hidden">
+        <h1 style="color: #b19cd9;">謎</h1>
+        <p id="quiz-question">謎を読み込み中...</p>
+        <div id="quiz-choices"></div>
+        <br>
+        <button class="btn-secondary" onclick="toggleView('main')">立ち去る</button>
+    </div>
+
     <div id="shop-screen" class="card hidden">
         <h1 style="color: #ffcc00;">ショップ</h1>
         <p>所持ポイント: <span class="current-points" style="color:#ffcc00; font-weight:bold;">0</span> pt</p>
-        
-        <div id="item-list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;">
-            <p>アイテムを読み込み中...</p>
-        </div>
-
+        <div id="item-list" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px;"></div>
         <br>
         <button class="btn-secondary" onclick="toggleView('main')">← 戻る</button>
     </div>
@@ -67,31 +75,30 @@
         <div class="modal-content">
             <h2 id="modal-title" style="color:#00d4ff; margin-top:0;">通知</h2>
             <p id="modal-body">メッセージ内容</p>
-            <div id="modal-footer">
-                <button onclick="closeModal()">OK</button>
-            </div>
+            <div id="modal-footer"></div>
         </div>
     </div>
 
     <script>
+        // ★★★ GASのURLは以前と同じものを使用してください ★★★
         const GAS_URL = "https://script.google.com/macros/s/AKfycby5BrxMGY1qTwF2S4vc_j9DmquK-rCfoN0YnDLIMR5vM6xTmg1znmGT2n6mXnOuSbJ7/exec";
+        
         let currentUser = JSON.parse(localStorage.getItem('gameUser'));
+        let currentQuiz = null;
 
-        window.onload = () => {
-            if (currentUser) showMainScreen();
-        };
+        window.onload = () => { if (currentUser) showMainScreen(); };
 
-        // 画面切り替え関数
         function toggleView(view) {
-            if (view === 'shop') {
-                document.getElementById('main-screen').classList.add('hidden');
-                document.getElementById('shop-screen').classList.remove('hidden');
-                loadItems(); // ショップに行く時にアイテムを読み込む
-            } else {
-                document.getElementById('shop-screen').classList.add('hidden');
+            document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+            if (view === 'main') {
                 document.getElementById('main-screen').classList.remove('hidden');
+            } else if (view === 'shop') {
+                document.getElementById('shop-screen').classList.remove('hidden');
+                loadItems();
+            } else if (view === 'quiz') {
+                document.getElementById('quiz-screen').classList.remove('hidden');
+                loadQuiz();
             }
-            // ポイント表示を更新
             updatePointsDisplay();
         }
 
@@ -125,17 +132,12 @@
             document.getElementById('custom-modal').classList.add('show');
         }
 
-        function closeModal() {
-            document.getElementById('custom-modal').classList.remove('show');
-        }
+        function closeModal() { document.getElementById('custom-modal').classList.remove('show'); }
 
         async function login() {
             const name = document.getElementById('player-name-input').value;
             if (!name) return showMessage("エラー", "名前を入力してください。");
-            const res = await fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "login", userName: name })
-            });
+            const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "login", userName: name }) });
             const data = await res.json();
             if (data.status === "success") {
                 currentUser = data;
@@ -151,55 +153,71 @@
             updatePointsDisplay();
         }
 
-        async function loadItems() {
-            const list = document.getElementById('item-list');
-            list.innerHTML = "<p>読み込み中...</p>";
-            try {
-                const res = await fetch(GAS_URL, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "getItems" })
-                });
-                const data = await res.json();
-                list.innerHTML = ""; 
-                data.items.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'item-box';
-                    div.innerHTML = `
-                        <p style="margin:0; font-weight:bold;">${item.name}</p>
-                        <p style="color:#ffcc00; margin:10px 0; font-size:1.2em;">${item.price}pt</p>
-                        <button onclick="confirmPurchase('${item.id}', '${item.name}')" style="font-size:0.8em; padding:8px 15px;">購入</button>
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        function confirmPurchase(itemId, itemName) {
-            showMessage("購入確認", `${itemName} を購入しますか？`, true, () => {
-                buyItem(itemId);
-            });
-        }
-
-        async function buyItem(itemId) {
-            const res = await fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ action: "buyItem", userId: currentUser.userId, itemId: itemId })
-            });
+        async function loadQuiz() {
+            document.getElementById('quiz-question').innerText = "謎を読み込み中...";
+            document.getElementById('quiz-choices').innerHTML = "";
+            const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "getQuiz" }) });
             const data = await res.json();
             if (data.status === "success") {
-                showMessage("成功", data.itemName + " を購入しました！");
-                currentUser.points = data.newPoint;
-                localStorage.setItem('gameUser', JSON.stringify(currentUser));
-                updatePointsDisplay();
-            } else {
-                showMessage("エラー", data.message);
+                currentQuiz = data.quiz;
+                document.getElementById('quiz-question').innerText = currentQuiz.q;
+                [currentQuiz.c1, currentQuiz.c2, currentQuiz.c3].forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.className = "choice-btn";
+                    btn.innerText = choice;
+                    btn.onclick = () => submitAnswer(choice);
+                    document.getElementById('quiz-choices').appendChild(btn);
+                });
             }
         }
 
-        function logout() {
-            localStorage.removeItem('gameUser');
-            location.reload();
+        async function submitAnswer(answer) {
+            const res = await fetch(GAS_URL, { 
+                method: "POST", 
+                body: JSON.stringify({ action: "answerQuiz", userId: currentUser.userId, quizId: currentQuiz.id, answer: answer }) 
+            });
+            const data = await res.json();
+            if (data.isCorrect) {
+                showMessage("解明！", `謎を解きました。 ${data.pointAdded}pt 獲得です。`);
+                currentUser.points = data.newPoint;
+                localStorage.setItem('gameUser', JSON.stringify(currentUser));
+                toggleView('main');
+            } else {
+                showMessage("迷宮...", "その答えでは謎は解けませんでした。");
+                toggleView('main');
+            }
         }
+
+        async function loadItems() {
+            const list = document.getElementById('item-list');
+            list.innerHTML = "<p>読み込み中...</p>";
+            const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "getItems" }) });
+            const data = await res.json();
+            list.innerHTML = ""; 
+            data.items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'item-box';
+                div.innerHTML = `<p><b>${item.name}</b></p><p style="color:#ffcc00;">${item.price}pt</p><button onclick="confirmPurchase('${item.id}', '${item.name}')">交換</button>`;
+                list.appendChild(div);
+            });
+        }
+
+        function confirmPurchase(itemId, itemName) {
+            showMessage("確認", `${itemName} と交換しますか？`, true, () => { buyItem(itemId); });
+        }
+
+        async function buyItem(itemId) {
+            const res = await fetch(GAS_URL, { method: "POST", body: JSON.stringify({ action: "buyItem", userId: currentUser.userId, itemId: itemId }) });
+            const data = await res.json();
+            if (data.status === "success") {
+                showMessage("獲得", data.itemName + " を手に入れました！");
+                currentUser.points = data.newPoint;
+                localStorage.setItem('gameUser', JSON.stringify(currentUser));
+                updatePointsDisplay();
+            } else { showMessage("失敗", data.message); }
+        }
+
+        function logout() { localStorage.removeItem('gameUser'); location.reload(); }
     </script>
 </body>
 </html>
